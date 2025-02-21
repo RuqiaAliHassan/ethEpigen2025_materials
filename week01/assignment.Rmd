@@ -1,0 +1,42 @@
+---
+title: "Assignment Week1"
+author: "Ruqia Ali Hassan"
+output: html_document
+date: "2025-02-21"
+---
+
+# Installing Packages and loading liberarys
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Installing Packages
+
+```{r Installing packages}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+install.packages(c("gsl","ggplot2","remotes","rmarkdown","UpSetR"))
+# If you haven't install Bioconductor yet:
+install.packages("BiocManager")
+# BiocManager::install()
+
+BiocManager::install(c("GenomicRanges", "rtracklayer", "EnrichedHeatmap", "AnnotationHub", 
+                       "ensembldb", "edgeR", "esATAC", "sechm", "motifmatchr","rGREAT",
+                       "bsseq","DMRcate","data.table","InteractionSet","limma",
+                       "universalmotif", "MotifDb", "TFBSTools", "Biostrings", "PWMEnrich",
+                       "Rsubread","Rfastp"))
+BiocManager::install(c("Bioconductor/BiocFileCache", "chromVAR"))
+BiocManager::install("ETHZ-INS/epiwraps")
+```
+
+## Loading Liberys
+
+```{r Loading the epiwarp library}
+library(epiwraps)
+```
+
+```{r Session Info}
+sessionInfo() #print all packages used (include that always at the end of the markdown so others can see if any packages are missing in order to reproduce your code)
+
+```
+
