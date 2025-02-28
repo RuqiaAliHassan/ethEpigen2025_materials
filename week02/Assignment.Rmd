@@ -1,0 +1,77 @@
+---
+title: "Assignment Week 2"
+author: "Ruqia Ali Hassan"
+date: "2025-02-28"
+output: html_document
+---
+
+# Loading Librarys
+
+
+```{r Loading librarys an initilizing an AnnotationHub object , message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({ #in order not to get the messages, for cleaner markdown
+  library(AnnotationHub) # to fetch genomes, annotations, etc.
+  library(ensembldb)     # to manipulate ensembl gene annotations
+  library(GenomicRanges) # data structure for genomic ranges 
+  library(epiwraps)      # visualization
+})
+
+ah<-AnnotationHub()
+```
+
+All the relevant libraries are loaded, and `ah` is initialized.
+
+## Downloading annotations data
+
+```{r Downloading annotations data}
+#Download the mouse (Mus Musculus) EnsDb object, version 102, genome build GRCm38
+mouse <- query(ah, c("EnsDb", "Mus musculus", "102", "GRCm38"))
+
+#Download the mouse genome sequence ( dna_sm ) in TwoBit/2bit format for GRCm38
+mouse_gs <- query(ah, c("Mus musculus", "dna_sm", "TwoBit", "GRCm38"))
+
+#Download the drosophila melanogaster genome sequence ( dna_sm ) in TwoBit/2bit format for BDGP6
+drosophila_melanogaster <- query(ah, c("Drosophila melanogaster", "dna_sm", "TwoBit", "BDGP6"))
+```
+
+Using `query()`, we download the three required annotation datasets: - The mouse (Mus musculus) —-EnsDb object, version 102, genome build GRCm38 - The mouse genome sequence (dna_sm) in TwoBit/2bit format for GRCm38 - The Drosophila melanogaster genome sequence (dna_sm) in TwoBit/2bit format for BDGP6
+
+### Mouse EnsDb
+
+```{r }
+mouse
+ensdb<- ah[["AH89211"]]
+genes <- genes(ensdb)
+head(genes)
+
+#Number of different ensembl gene IDs
+num_geneID <- length(unique(genes$gene_id))
+num_geneID
+
+#Number of different ensembl gene symbols
+num_genesymbol <- length(unique(genes$gene_name))
+num_genesymbol
+```
+
+```{r Plotting the distribution of the (spliced) length of protein-coding transcripts}
+
+# exons of protein-coding transcripts
+exsPerTx<- exonsBy(ensdb, by="tx", filter=TxBiotypeFilter("protein_coding"))
+exsPerTx
+
+txLengths <- sum(width(exsPerTx))
+head(txLengths)
+
+hist(txLengths, breaks = 50, main = "Distribution of Spliced Transcript Lengths",
+     xlab = "Spliced Transcript Length", xlim = range(txLengths))
+
+```
+
+Next, we take a closer look at the mouse EnsDb. Since there is only one record with the ID `AH89211`, we use `ensdb <- ah[["AH89211"]]`. Using the `genes()` function, we extract the genes and determine the number of unique Ensembl gene IDs and symbols.
+
+After extracting the exons split by transcripts for the protein-coding regions of the genome using the exonsBy function, we group the exons by individual transcripts. These grouped exons are then summed to calculate the length of each transcript. Finally, the distribution of transcript lengths is visualized using a histogram.
+
+```{r Session Info}
+sessionInfo() #print all packages used (include that always at the end of the markdown so others can see if any packages are missing in order to reproduce your code)
+
+```
