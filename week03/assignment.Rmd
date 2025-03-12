@@ -1,0 +1,162 @@
+---
+title: "Assignment Week 3"
+author: "Ruqia Ali Hassan"
+date: "2025-03-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Libraries
+
+First, all of the necessary libraries for genome analysis are loaded.
+
+```{r Downloading libraries , message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(AnnotationHub)
+  library(Rsubread)      # read alignment
+  library(rtracklayer)   # read/write genomic file formats
+  library(Biostrings)    # handling sequences
+  library(Rfastp)        # read QC/trimming
+  library(epiwraps) 
+})
+ah <- AnnotationHub()
+
+```
+
+# Downloading the raw data
+
+The raw Drosophila ChIP-seq data is downloaded from ENCODE and saved to a folder called "raw". The code also checks if the file exists.
+
+```{r Download Drosophila ChIP-seq for the protein CTCF, eval=FALSE}
+options(timeout=3600)
+dir.create("raw") #creats a folder named raw
+download.file("https://www.encodeproject.org/files/ENCFF127RRR/@@download/ENCFF127RRR.fastq.gz", "raw/ENCFF127RRR.fastq.gz", mode="wb") #dowloades the data in the folder raw
+file.exists("raw/ENCFF127RRR.fastq.gz") #checks if file was created 
+```
+
+# Reads quality control and trimming
+
+`Rfastp` is used to trim and perform quality control on the raw sequencing data. The cleaned reads are saved in the "rfastp.trimmed" folder.
+
+```{r Quality Control and Trimming (using Rfastp)}
+dir.create("rfastp.trimmed") # creates folder named rfastp.trimmed
+
+qc <- Rfastp::rfastp(read1 = "raw/ENCFF127RRR.fastq.gz",
+                      outputFastq = "rfastp.trimmed/ENCFF127RRR_trimmed.fastq.gz",
+                      thread = 4,
+                      overrepresentationAnalysis = TRUE,
+                      verbose = TRUE)
+
+
+
+file.exists("rfastp.trimmed/ENCFF127RRR_trimmed.fastq.gz_R1.fastq.gz") 
+```
+
+# Alignment (using Rsubread)
+
+## Building a genome index for mapping
+
+The reference Drosophila genome is downloaded and indexed using `Rsubread` for read alignment. The genome is saved in FASTA format and a genome index is built.
+
+```{r Genome index, eval=FALSE}
+# we get the genome sequence from AnnotationHub (reference genome for Drosophila (?))
+genome <- ah[["AH49674"]]
+# we create a new directory that will contain the genome index
+dir.create("BDGP6_genome")
+# we write the genome sequence in fasta format
+export(import.2bit(genome), "BDGP6_genome/genome.fasta.gz", compress=TRUE)
+# we build a Rsubread index
+Rsubread::buildindex("BDGP6_genome/rsubread", reference="BDGP6_genome/genome.fasta.gz")
+```
+
+## Alignment of Reads
+
+The trimmed sequencing reads are aligned to the reference genome using `Rsubread`, and the results are saved as a BAM file in the "aligned" folder.
+
+```{r Alignment}
+dir.create("aligned")
+align.stats <- Rsubread::align(index = "BDGP6_genome/rsubread", 
+                               type = "dna",
+                               readfile1 = "rfastp.trimmed/ENCFF127RRR_trimmed.fastq.gz_R1.fastq.gz", 
+                               output_file = "aligned/ENCFF127RRR_aligned.bam",
+                               nthreads = 6, 
+                               sortReadsByCoordinates = TRUE)
+
+
+```
+
+## Mapped Reads Analysis
+
+Here, the total number of mapped reads and the percentage of reads that align successfully to the genome are calculated.
+
+```{r}
+align.stats
+
+#Total number mapped reads
+mapped_reads <- align.stats[2, 1]
+
+
+#Precentage mappes reads
+total_reads <- align.stats[1,1]
+
+
+percentage_mapped <-round((mapped_reads/total_reads)*100, 2)
+
+
+#Print
+cat("Total number of mapped reads: ", mapped_reads, "\n")
+cat("Total number of reads: ", total_reads, "\n")
+cat("Percentage of mapped reads: ", percentage_mapped, "%\n")
+```
+
+# Peak calling (using MACS)
+
+`MACSr` is used to identify peaks in the alignment data, indicating regions enriched for the protein CTCF. The number of peaks detected is displayed.
+
+```{r Installing MACS and calling peak}
+# install MACSr
+if(!require("MACSr",quietly=TRUE)) { BiocManager::install("ETHZ-INS/epiwraps", ref="callpeaks")}
+
+
+library(MACSr)
+
+peaks <- callPeaks(bam="aligned/ENCFF127RRR_aligned.bam")
+
+#Number of peaks
+num_total_peaks <- length(peaks) #gives number of overal peaks
+
+#Print
+cat("Total number of peaks in the alignment data: ", num_total_peaks, "\n")
+```
+
+## Finding peaks in gene
+
+Here, we find overlapping peaks within gene regions using Drosophila gene annotations from `AnnotationHub` and map the signal around one peak.
+
+```{r Plotting the peaks}
+
+head(peaks)
+
+peaks_gr<-GRanges(peaks)
+
+#Get the annotation
+query(ah, "Drosophila") #find fitting gene annotation --> AH119285 
+ensdb <- ah[["AH119285"]] 
+genes <- genes(ensdb) #extracts gene location
+
+#find overlaps
+peaksoverlaps <- peaks_gr[queryHits(findOverlaps(peaks_gr, genes))]
+
+#Number of overlaping peaks
+num_overlapingpeaks <- length(peaksoverlaps)
+cat("Total number of peaks in a gene: ", num_overlapingpeaks, "\n")
+
+#selecting one peak for plotting
+selected_peak <- peaksoverlaps[1] # Select the first peak from the overlapping peaks
+
+#plot the peak
+plotSignalTracks(list("aligned/ENCFF127RRR_aligned.bam"), region=selected_peak, extend=5000)
+```
