@@ -1,0 +1,113 @@
+---
+title: "Assignment Week4"
+author: "Ruqia Ali Hassan"
+date: "2025-03-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Libraries
+
+First, all of the necessary libraries for genome analysis are loaded.
+
+```{r Downloading libraries , message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(AnnotationHub)
+  library(Rsubread)      # read alignment
+  library(rtracklayer)   # read/write genomic file formats
+  library(Biostrings)    # handling sequences
+  library(Rfastp)        # read QC/trimming
+  library(epiwraps) 
+})
+ah <- AnnotationHub()
+
+```
+
+# Downloade embryonic stem cells (mESC) files
+
+We use ES-Bruce4 which is mouse emryonic stem cell line. We dwonloade all the nessecery files, which here are 5 files, 4 files for the 4 histon modification and one for the transcription factor p300.
+
+## Transcription factor p300
+
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF460EOA/@@download/ENCFF460EOA.bed.gz","P300.bed.gz")
+```
+
+## Histone modifications (H3K4me3, H3K4me1, H3K27ac, and H3K27me3)
+
+### H3K4me3
+
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF974BMC/@@download/ENCFF974BMC.bed.gz","H3K4me3.bed.gz")
+```
+
+### H3K4me1
+
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF426IIV/@@download/ENCFF426IIV.bed.gz", "H3K4me1.bed.gz")
+
+```
+
+### H3K27ac
+
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF274UIB/@@download/ENCFF274UIB.bed.gz", "H3K27ac.bed.gz")
+
+```
+
+### H3K27me3
+
+```{r}
+download.file("https://www.encodeproject.org/files/ENCFF008XKX/@@download/ENCFF008XKX.bed.gz", "H3K27me3.bed.gz")
+
+```
+
+# QUESTION: Of the p300 peaks, what proportion overlap each of the marks?
+
+## Import Files as GRange
+The downloaded files are imported into R as GenomicRanges objects to facilitate further analysis.
+```{r}
+peak_P300<-rtracklayer::import("P300.bed.gz", format="narrowPeak")
+peak_H3K4me3<-rtracklayer::import("H3K4me3.bed.gz", format="narrowPeak")
+peak_H3K4me1<-rtracklayer::import("H3K4me1.bed.gz", format="narrowPeak")
+peak_H3K27ac<-rtracklayer::import("H3K27ac.bed.gz", format="narrowPeak")
+peak_H3K27me3<-rtracklayer::import("H3K27me3.bed.gz", format="narrowPeak") 
+```
+
+## Find Overlapping Peaks
+We now use the findOverlaps() function on the GenomicRanges objects to identify the overlaps between the p300 peaks and the histone modification peaks.
+```{r}
+P300_H3K4me3 <- peak_P300[queryHits(findOverlaps(peak_P300, peak_H3K4me3, type="any"))]
+
+P300_H3K4me1 <- peak_P300[queryHits(findOverlaps(peak_P300, peak_H3K4me1, type="any"))]
+
+P300_H3K27ac <- peak_P300[queryHits(findOverlaps(peak_P300, peak_H3K27ac, type="any"))]
+
+P300_H3K27me3 <- peak_P300[queryHits(findOverlaps(peak_P300, peak_H3K27me3, type="any"))]
+```
+
+## Proportion of the Overlaps
+By dividing the length of the overlapping regions by the total number of p300 peaks, we calculate the proportion of p300 peaks that overlap each histone modification. The results are presented as percentages.
+```{r}
+prop_H3K4me3<-(length(P300_H3K4me3) / length(peak_P300)) * 100
+
+prop_H3K4me1 <- (length(P300_H3K4me1) / length(peak_P300)) * 100
+
+prop_H3K27ac <- (length(P300_H3K27ac) / length(peak_P300)) * 100
+
+prop_H3K27me3 <- (length(P300_H3K27me3) / length(peak_P300)) * 100
+
+cat("Proportion of p300 peaks overlapping H3K4me3: ", prop_H3K4me3, "%\n")
+cat("Proportion of p300 peaks overlapping H3K4me1: ", prop_H3K4me1, "%\n")
+cat("Proportion of p300 peaks overlapping H3K27ac: ", prop_H3K27ac, "%\n")
+cat("Proportion of p300 peaks overlapping H3K27me3: ", prop_H3K27me3, "%\n")
+```
+
+```{r cars}
+summary(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
