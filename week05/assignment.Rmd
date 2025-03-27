@@ -1,0 +1,157 @@
+---
+title: "Assignment Week 5"
+author: "Ruqia Ali Hassan"
+date: "2025-03-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Libraries
+
+First, all of the necessary libraries for genome analysis are loaded.
+
+```{r}
+suppressPackageStartupMessages({
+  library(AnnotationHub)
+  library(ensembldb)
+  library(GenomicRanges)
+  library(epiwraps)
+  library(rtracklayer)
+  library(ggplot2)
+})
+```
+
+# Bivalent domains in between H3K27me3 and H3K4me3 in mouse embryonic stem cells (mESC) and erythroblasts
+
+## Download files
+
+The species being analyzed is the mouse. For each marker (H3K27me3 and H3K4me3), we download data for the embryonic stem cell line (mESC) and a differentiated cell line (erythroblasts).
+
+```{r}
+options(timeout=1800)
+dir.create("peaks")
+#Embryonic cells
+
+#H3K27me3 
+download.file("https://www.encodeproject.org/files/ENCFF008XKX/@@download/ENCFF008XKX.bed.gz", "peaks/H3K27me3_mESC.bed.gz")
+
+#H3K4me3
+download.file("https://www.encodeproject.org/files/ENCFF974BMC/@@download/ENCFF974BMC.bed.gz","peaks/H3K4me3_mESC.bed.gz")
+
+#Differentiated cells
+
+#H3K27me3 
+download.file("https://www.encodeproject.org/files/ENCFF728FZO/@@download/ENCFF728FZO.bed.gz", "peaks/H3K27me3_diff.bed.gz")
+
+#H3K4me3
+download.file("https://www.encodeproject.org/files/ENCFF579NUO/@@download/ENCFF579NUO.bed.gz","peaks/H3K4me3_diff.bed.gz")
+
+
+```
+
+### Identify bivalent domains
+
+A peak file is created to read all four files.
+
+```{r}
+#list the files
+peakfiles <- list.files("peaks", full.names = TRUE)
+
+#give them meaningful names
+names(peakfiles) <- gsub("\\.bed.gz","",basename(peakfiles))
+
+#read the peaks:
+peaks <- lapply(peakfiles, FUN=rtracklayer::import, format="narrowPeak")
+#print(peaks)
+
+#saveRDS(peaks, file="peaksBug.rds") 
+#sapply(peaks, class)
+#lengths(peaks) 
+```
+
+```{r}
+# Bivalent fraction calculation for embryonic cells (not needed her but done to better understand the lapply function)
+
+#Direct approache
+#bivalent_fraction <- sum(overlapsAny(peaks$H3K27me3, peaks$H3K4me3)) / length(peaks$H3K27me3) *100
+#print(bivalent_fraction)
+
+#Lapply approache
+#bivalent_fraction_lapply <- lapply(peaks, FUN=function(x) sum(overlapsAny(peaks$H3K27me3, x)) / length(peaks$H3K27me3) *100)
+#print(bivalent_fraction_lapply) 
+
+#The function(x) in lapply() iterates through all peak files, including self-comparisons (e.g., H3K27me3 vs H3K27me3), which calculates self-overlap. In contrast, the direct approach overlap_direct <- sum(overlapsAny(peaks$H3K27me3.gz, peaks$H3K4me3.gz))/length(peaks$H3K27me3.gz) specifically measures overlap between different peak sets (H3K27me3 and H3K4me3) without including self-overlaps.
+
+#can be done for the differentiated cell, but was skipped as fraction was not asked for. 
+```
+
+#### Bivalent domains in embryonic stem cells
+
+Using findOverlaps(), we identify the peaks that overlap between the two markers in mESCs. I used two different approaches to determine the bivalent domains, with the second being more precise.
+
+```{r}
+#Find the bivalent domains
+mESC_overlaps <- findOverlaps(peaks$H3K4me3_mESC, peaks$H3K27me3_mESC)
+
+# H3K27me3 peaks that overlap with H3K4me3 (full peaks)
+bivalent_domains_mESC <- peaks$H3K27me3_mESC[subjectHits(mESC_overlaps)]
+print(bivalent_domains_mESC)
+#print(width(bivalent_domains_mESC))  # Widths of full H3K27me3 peaks
+
+#EXACT overlapping domains
+exact_bivalent_domains_mESC <- pintersect(
+peaks$H3K4me3_mESC[queryHits(mESC_overlaps)], 
+peaks$H3K27me3_mESC[subjectHits(mESC_overlaps)])
+print(exact_bivalent_domains_mESC)
+#print(width(exact_bivalent_domains_mESC))  # Widths of precise overlaps
+
+#total_bivalent_domains_mESC <- length(exact_bivalent_domains_mESC)
+#print(total_bivalent_domains_mESC)
+```
+
+regionOverlaps() and regionUpset() are used to visualize the overlaps within the two markers in mESCs.
+
+```{r}
+#Visualizing the overlaps
+regionOverlaps(peaks)
+regionUpset(peaks, nsets=length(peaks))
+```
+
+### How many of the mESC bivalent domains are, in this differentiated cell type, overlapping either mark or their combination (in this differentiated cell type)?
+
+We find the overlaps of mESC bivalent domains with the markers in erythroblasts using findOverlaps(). To avoid double counting, setdiff() is used. The total unique overlaps are then calculated.
+
+```{r}
+# Overlaps with erythroblast histon markers
+overlap_H3K27me3 <- findOverlaps(exact_bivalent_domains_mESC, peaks$H3K27me3_diff) 
+overlap_H3K4me3  <- findOverlaps(exact_bivalent_domains_mESC, peaks$H3K4me3_diff)
+#findOverlaps() returns all the overlaps including the domains that overlap with both H3K27me3 and H3K4me3
+
+# Get UNIQUE (remove doubles) mESC domains overlapping each mark/both
+H3K27me3_domains <- unique(queryHits(overlap_H3K27me3))  
+H3K4me3_domains <- unique(queryHits(overlap_H3K4me3))   
+both_marker_domains <- intersect(H3K27me3_domains, H3K4me3_domains)  
+
+# Total unique domains overlapping either mark or both (union of the two sets)
+total_unique_overlap <- length(union(H3K27me3_domains, H3K4me3_domains))
+
+# Counts
+count_H3K27me3_only <- length(setdiff(H3K27me3_domains, H3K4me3_domains)) #setdiff returns the elements that are present in one set but not in another 
+count_H3K4me3_only  <- length(setdiff(H3K4me3_domains, H3K27me3_domains))
+count_both <- length(both_marker_domains)
+
+# Print results
+cat("Total mESC bivalent domains overlapping either/both marks in erythroblasts:", total_unique_overlap, "\n")
+cat(" - Overlapping H3K27me3 only:", count_H3K27me3_only, "\n")
+cat(" - Overlapping H3K4me3 only:", count_H3K4me3_only, "\n")
+cat(" - Overlapping both marks:", count_both, "\n")
+```
+
+The data reveals that 4192 bivalent domains in mouse embryonic stem cells (mESCs) overlap with histone modifications in erythroblasts, with 2822 overlapping H3K27me3, 101 overlapping H3K4me3, and 1269 overlapping both.
+
+```{r cars}
+summary(cars)
+```
