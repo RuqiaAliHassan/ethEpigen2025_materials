@@ -1,0 +1,103 @@
+---
+title: "Assignment Week 7"
+author: "Ruqia Ali Hassan"
+date: "2025-04-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Loading Libraries
+
+First, all of the necessary libraries for genome analysis are loaded.
+```{r, warning=FALSE}
+suppressPackageStartupMessages({
+  library(epiwraps)
+  library(AnnotationHub)
+  library(MotifDb)
+  library(memes)
+  library(universalmotif)
+  library(ensembldb)
+  library(ggplot2)
+  library(rtracklayer)
+})
+
+ah <- AnnotationHub(localHub=TRUE)
+```
+
+##Download the data
+```{r}
+download.file("https://ethz-ins.org/content/w7/atac.chr19.bam", "atac.chr19.bam", mode="wb")
+download.file("https://ethz-ins.org/content/w7/atac.chr19.bam.bai", "atac.chr19.bam.bai", mode="wb")
+```
+## Preparing tracks
+In order to plot the insertion (i.e. ‘cuts’) profile of nucleosome-free fragments and the centers of nucleosome-containing fragments round the high-confidence motifs of MAZ and KLF4. 
+```{r}
+bam <- "atac.chr19.bam"
+
+# create a track using only nucleosome-free fragments, the number of cuts/insertion sites at each position
+bam2bw(bam, output_bw = "NF_cuts.bw", paired=TRUE, binWidth=1L, type="ends", minFragLength=30, 
+       maxFragLength=120, trim=4L, extend=3L, forceSeqlevelsStyle = "Ensembl")
+
+# create a track using only the (10bp) centers of mono-nucleosome fragments
+bam2bw(bam, output_bw = "mono_centers.bw", paired=TRUE, binWidth=5L, minFragLength=140, trim=4L,
+       maxFragLength=220, type="center", extend=10L, forceSeqlevelsStyle = "Ensembl")
+
+# prepare the list of tracks
+tracks <- list.files(pattern="bw$")
+names(tracks) <- gsub("\\.bw","",basename(tracks))
+
+
+```
+
+## Obtainin the sites of the motifs
+
+In this step, the motifs for the transcription factors MAZ and KLF4 are retrieved from the MotifDb database. These motifs are then converted to the appropriate format and scanned across chromosome 19 of the mouse genome to identify their occurrence sites. The resulting motif matches are stored as GRanges objects for further analysis.
+```{r}
+#get the chr19 sequence
+ensdb <- ah[["AH89211"]]# mouse ensembldb object
+genome <- ah[["AH68356"]]
+chr19 <- import(genome)["19"]
+
+#get MAZ motif
+MAZ_motif <- MotifDb::query(MotifDb, c("MAZ","Mus"))[[1]]
+MAZ_motif2 <- convert_motifs(MAZ_motif, class="TFBSTools-PFMatrix")
+ 
+
+#find MAZ motif matches in chr19
+moi_MAZ <-motifmatchr::matchMotifs(MAZ_motif2, chr19, out="positions", p.cutoff=1e-5)[[1]]
+#convert to GRanges
+moi_MAZ <- as(setNames(moi_MAZ,names(chr19)), "GRanges")
+
+
+#get KLF4 motif
+KLF4_motif <- MotifDb::query(MotifDb, c("KLF4","Mus"))[[1]]
+KLF4_motif2 <- convert_motifs(KLF4_motif, class="TFBSTools-PFMatrix")
+
+#find KLF4 motif matches in chr19
+moi_KLF4 <-motifmatchr::matchMotifs(KLF4_motif2, chr19, out="positions", p.cutoff=1e-5)[[1]]
+#convert to GRanges
+moi_KLF4 <- as(setNames(moi_KLF4,names(chr19)), "GRanges")
+  
+
+```
+
+#Plotting signal around the motif occurence
+The insertion profile of nucleosome-free fragments and the centers of nucleosome-containing fragments are plotted around high-confidence MAZ and KLF4 motif sites.
+```{r, warning=FALSE, message = FALSE}
+#MAZ motifs
+MAZ_sm <- signal2Matrix(tracks, moi_MAZ, w=5, extend=300)
+plotEnrichedHeatmaps(MAZ_sm, trim=0.95, multiScale = TRUE, axis_name = "0")
+
+#KLF4 motifs
+KLF4_sm <- signal2Matrix(tracks, moi_KLF4, w=5, extend=300)
+plotEnrichedHeatmaps(KLF4_sm, trim=0.95, multiScale = TRUE, axis_name = "0")
+
+
+```
+
+```{r cars}
+summary(cars)
+```
+
