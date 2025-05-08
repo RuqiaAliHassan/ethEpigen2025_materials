@@ -1,0 +1,32 @@
+---
+title: "Assignment WEEK 9"
+output: html_document
+date: "2025-05-07"
+---
+
+## 1) What is the topic?
+
+# Temporal dynamics of glucocorticoid receptor (GR)-binding.
+
+The hypothalamic-pituitary-adrenal (HPA) axis mediates the long-term stress response by culminating in the release of glucocorticoids, primarily cortisol in humans or corticosterone in rodents (Miller & Auchus, 2011). Glucocorticoids bind to endogenously expressed GRs. In the unbound deactivated state, GRs predominantly localize in the cytoplasm as part of a multi-protein complex containing heat shock protein 90 (Hsp90) (Nicolaides et al., 2000). Upon glucocorticoid binding, they dissociate from the complex, revealing a nuclear localization signal (NLS) which facilitates their nuclear import (Leistner & Menke, 2020; Spencer & Deak, 2016). Activated receptors form hetero- or homodimers which can act as hormone-dependent transcription factors, binding to roughly 15 nucleotide long consensus sequences referred to as glucocorticoid response elements (GREs) (Carrigan et al., 2007; Timmermans et al., 2019). GREs typically reside near promoter regions of glucocorticoid target genes. Once GRs associate with GREs, several co-regulators are recruited which assist the GRs in modulating the transcriptional rate of target genes. Dexamethasone (DEX) is a synthetic glucocorticoid, a specific GR agonist known to activate GR (Silva et al., 2014). Reddy et al. (2009) previously identified roughly 4392 genomic positions bound by GR upon DEX treatment (1h, 100nM) and reproduced 89% of GR binding sites (GBSs) identified by So et al. (2007). This has been further reproduced since (Vockely et al., 2016).
+
+## 2) What data will you be using?
+
+GR-ChIP sequencing data in A549 cells from Tim Reddy available on ENCODE <https://www.encodeproject.org/treatment-time-series/ENCSR385LRX/> (raw sequencing data and the processed data are available). Cells were treated with DEX for 0h (baseline GR-binding) 1h, 4h, 8h and 12h.
+
+## 3) What questions do you wish to answer?
+
+-   What are the temporal dynamics of GR-binding upon sustained DEX-treatment (100nM) in A549 cells?
+-   How many hours after onset of DEX-treatment does GR-binding begin to decline and how long does it take to return to baseline?
+-   For which GR binding sites (GBSs) is GR-binding most/ least stable? Identify GR binding sites (GBSs) for 0 (baseline),1,4,8 and 12h and compare how they change across the five sampled time-points.
+
+## References
+
+-   Carrigan, A., Walther, R. F., Salem, H. A., Wu, D., Atlas, E., Lefebvre, Y. A., & Haché, R. J. G. (2007). An Active Nuclear Retention Signal in the Glucocorticoid Receptor Functions as a Strong Inducer of Transcriptional Activation. Journal of Biological Chemistry, 282(15), 10963–10971. <https://doi.org/10.1074/jbc.M602931200>
+-   Leistner, C., & Menke, A. (2020). Chapter 4—Hypothalamic–pituitary–adrenal axis and stress. In R. Lanzenberger, G. S. Kranz, & I. Savic (Eds.), Handbook of Clinical Neurology (Vol. 175, pp. 55–64). Elsevier. <https://doi.org/10.1016/B978-0-444-64123-6.00004-7>
+-   Miller, W. L., & Auchus, R. J. (2011). The Molecular Biology, Biochemistry, and Physiology of Human Steroidogenesis and Its Disorders. Endocrine Reviews, 32(1), 81–151. <https://doi.org/10.1210/er.2010-0013>
+-   Nicolaides, N. C., Chrousos, G., & Kino, T. (2000). Glucocorticoid Receptor. In K. R. Feingold, B. Anawalt, M. R. Blackman, A. Boyce, G. Chrousos, E. Corpas, W. W. de Herder, K. Dhatariya, K. Dungan, J. Hofland, S. Kalra, G. Kaltsas, N. Kapoor, C. Koch, P. Kopp, M. Korbonits, C. S. Kovacs, W. Kuohung, B. Laferrère, … D. P. Wilson (Eds.), Endotext. MDText.com, Inc. <http://www.ncbi.nlm.nih.gov/books/NBK279171/>
+-   Silva, E. J. R., Vendramini, V., Restelli, A., Bertolla, R. P., Kempinas, W. G., & Avellar, M. C. W. (2014). Impact of adrenalectomy and dexamethasone treatment on testicular morphology and sperm parameters in rats: Insights into the adrenal control of male reproduction. Andrology, 2(6), 835–846. <https://doi.org/10.1111/j.2047-2927.2014.00228.x>
+-   Spencer, R. L., & Deak, T. (2016). A USERS GUIDE TO HPA AXIS RESEARCH. Physiology & Behavior, 178, 43. <https://doi.org/10.1016/j.physbeh.2016.11.014>
+-   Timmermans, S., Souffriau, J., & Libert, C. (2019). A General Introduction to Glucocorticoid Biology. Frontiers in Immunology, 10. <https://doi.org/10.3389/fimmu.2019.01545>
+-   Vockley, C. M., D’Ippolito, A. M., McDowell, I. C., Majoros, W. H., Safi, A., Song, L., Crawford, G. E., & Reddy, T. E. (2016). Direct GR binding sites potentiate clusters of TF binding across the human genome. Cell, 166(5), 1269-1281.e19. <https://doi.org/10.1016/j.cell.2016.07.049>
