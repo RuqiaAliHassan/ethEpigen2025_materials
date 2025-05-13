@@ -1,0 +1,125 @@
+---
+title: "Assignment Week 10"
+author: "Ruqia Ali Hassan"
+date: "2025-05-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Clustering and enrichment analysis
+
+## Loading Libraries
+
+```{r, warning=FALSE}
+suppressPackageStartupMessages({
+  library(GenomicRanges)
+  library(epiwraps)
+  library(ggplot2)
+  library(rGREAT)
+})
+```
+
+## Download data
+
+```{r, eval=FALSE}
+options(timeout = 6000)
+download.file("https://ethz-ins.org/content/w10.assignment.zip", "w10.assignment.zip")
+unzip("w10.assignment.zip")
+#list.files()
+```
+
+
+```{r}
+bed_files <- list.files(pattern="bed$") # we first import the peaks
+peaks <- lapply(bed_files, rtracklayer::import.bed) # we'll focus on the high-quality peaks
+names(peaks) <- gsub(".bed$", "", bed_files)
+peaks <- lapply(peaks, FUN=function(x) x[x$score>800]) # we get the union of non-redundant regions
+regions <- reduce(unlist(GRangesList(peaks)))
+```
+
+## Plot
+
+```{r, message=FALSE, warning=FALSE }
+ese <- signal2Matrix(peaks, regions, extend=2000)
+plotEnrichedHeatmaps(ese)
+ese2 <- ese[1:1000,]
+plotEnrichedHeatmaps(ese2, cluster_rows = TRUE, show_row_dend=TRUE )
+```
+
+The three transcription factors (TFs) from the CREB family, Creb1, Creb3, and Creb3L1 show both distinct and overlapping binding patterns across genomic regions.
+
+## Clustering
+
+```{r}
+set.seed(123)  # to ensure that it gives the same results everytime
+cl <- clusterSignalMatrices(ese, k=4)
+table(cl)
+head(cl)
+length(cl)
+length(regions)
+
+# to make sure the cluster labels stay associated with the corresponding regions/rows
+# even if we manipulate the object, put them inside the rowData of the object:
+rowData(ese)$cluster <- cl
+head(rowData(ese))
+```
+
+
+A total of 2,269 regions were grouped into 4 clusters, which explained approximately 82% of the variance, indicating that the clustering effectively captures differences in transcription factor binding patterns.
+
+
+
+```{rwarning=FALSE, message=FALSE}
+# Plotting the clusters:
+plotEnrichedHeatmaps(ese, row_split="cluster", colors=c("white","darkred"))
+plotEnrichedHeatmaps(ese, row_split=rowData(ese)$cluster, 
+                     colors=c("white","darkred"))
+```
+
+
+
+```{r, message=FALSE, warning=FALSE}
+# Adding colors:
+mycolors <- c("1"="red", "2"="blue", "3"="darkgreen", "4"="black")
+plotEnrichedHeatmaps(ese, row_split="cluster", mean_color=mycolors, colors=c("white","darkred"))
+```
+
+The clusters are color-coded and added to the heatmap, visualizing transcription factor binding patterns across the different groups.
+
+## Enrichment analysis
+
+```{r, message=FALSE, warning=FALSE}
+# we first split the regions by cluster:
+split_regions <- split(rowRanges(ese), rowData(ese)$cluster)
+lengths(split_regions)
+
+res <- great(split_regions[["4"]], gene_sets="GO:BP", tss_source="hg38", 
+             background=regions, cores=2)
+bp <- getEnrichmentTables(res)
+head(bp)
+```
+
+The GO enrichment analysis in cluster 4 revealed significant associations with pathways involved in cell proliferation, differentiation, and development. The most enriched region was associated with "neural precursor cell proliferation," which showed a ~2.2-fold enrichment with an adjusted p-value of 0.0045, indicating strong significance. Other highly enriched regions included "negative regulation of cell differentiation," with a ~1.7-fold enrichment and an adjusted p-value of 0.0045, as well as "negative regulation of cell development," which had a ~2.0-fold enrichment and an adjusted p-value of 0.0082. Additional enriched regions were related to cell differentiation, cellular developmental process, and anatomical structure morphogenesis. 
+
+
+
+```{r, fig.width=9, fig.height=6}
+# We plot the top Biological Processes:
+ggplot(head(bp,15), aes(fold_enrichment, reorder(description, p_adjust), 
+                        size=observed_region_hits, color=-log10(p_adjust))) + 
+  geom_point() + scale_color_viridis_c()
+```
+
+
+The analysis suggests two key findings:
+
+1. Genes with the strongest enrichment (highest fold change) are involved in blocking neural development. This likely helps maintain stem or progenitor cells by preventing them from turning into mature neurons too soon.
+
+2. Genes with slightly lower enrichment but larger numbers are linked to general cell growth and specialization.
+
+```{r cars}
+summary(cars)
+```
+
