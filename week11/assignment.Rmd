@@ -1,0 +1,89 @@
+---
+title: "Assignment Week 11"
+author: "Ruqia Ali Hassan"
+date: "2025-05-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading Libraries
+```{r, message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(epiwraps)
+  library(ggplot2)
+  library(AnnotationHub)
+  library(ensembldb)
+  library(edgeR)
+  library(rtracklayer)
+  library(BiocParallel)
+  library(bsseq)   
+  library(DMRcate) 
+  library(rGREAT)
+})
+```
+
+## Download data
+```{r, message=FALSE, warning=FALSE}
+options(timeout = 6000)
+download.file("https://ethz-ins.org/content/w11_practical.zip", "w11_practical.zip")
+unzip("w11_practical.zip")
+dmr<- readRDS("C:/Users/ruqia/Downloads/dmr (1).rds") 
+bs <- readRDS("ESC_astrocytes_BSseq.rds")
+
+```
+
+## Bsseq object preparation
+```{r, message=FALSE, warning=FALSE}
+
+bs <- bs[rowSums(assay(bs,"Cov")>0)==ncol(bs), ] # remove CpGs that have 0 coverage in some samples
+
+design <- model.matrix(~celltype, data=pData(bs)) 
+
+methdesign <- modelMatrixMeth(design) # adapt for methylation data
+
+bs <- BSmooth(bs, BPPARAM=MulticoreParam(4, progress=FALSE))
+```
+
+
+## Visualize
+```{r, message=FALSE, warning=FALSE}
+dmr_chr1 <- dmr[seqnames(dmr) == "chr1"]
+metCpGs <- bsseq::getMeth(bs, regions=head(dmr_chr1,5), what="perRegion")
+
+colnames(metCpGs) <- colnames(bs)
+pheatmap(metCpGs, name="methylation")
+```
+
+
+## Enrichment analysis
+```{r, message=FALSE, warning=FALSE}
+class(dmr)
+great_analysis <- submitGreatJob(
+    gr = dmr, 
+    genome = "hg19",
+    includeCuratedRegDoms = TRUE,
+    rule                  = "basalPlusExt",
+    adv_upstream          = 5.0,
+    adv_downstream        = 1.0,
+    adv_span              = 1000.0,
+    )
+
+# Get and sort results
+enrichment <- getEnrichmentTables(great_analysis)
+#print(names(enrichment))
+go_bp <- as.data.frame(enrichment[["GO Biological Process"]])
+go_bp_sorted <- go_bp[order(go_bp$Binom_Adjp_BH), ]
+head(go_bp_sorted)
+
+```
+DMRs between ESCs and astrocytes were used in an rGREAT analysis to identify enrichments across the genome and understand which biological processes are controlled by DMRs. The most significantly enriched region contains genes involved in "regulation of cellular ketone metabolic process by regulation of transcription from RNA polymerase II promoter." This suggests different energy usage between the two cell types, with astrocytes probably relying more on ketones as an energy source.
+
+Other genes regulated by DMRs include those involved in: "regulation of somitogenesis," "lobar bronchus development," "establishment or maintenance of polarity of embryonic epithelium," "outer medullary collecting duct development," and "fibroblast proliferation." This suggests that processes such as differentiation, polarization, and development are regulated by DMRs, explaining the fundamental distinction between astrocytes and ESCs.
+
+```{r cars}
+summary(cars)
+```
+
