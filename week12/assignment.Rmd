@@ -1,0 +1,143 @@
+---
+title: "Assignment Week 12"
+author: "Ruqia Ali Hassan"
+date: "2025-05-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Loading Libraries
+```{r, message=FALSE, warning=FALSE}
+suppressPackageStartupMessages({
+  library(GenomicRanges)
+  library(AnnotationHub)
+  library(ensembldb)
+  library(ggplot2) 
+  library(rtracklayer)
+})
+```
+
+
+#Downloade data
+
+```{r}
+#Transcription factor FOXO1
+download.file("https://www.encodeproject.org/files/ENCFF331BSI/@@download/ENCFF331BSI.bed.gz","FOXO1.bed.gz")
+
+#Salviato et al. interactions
+file<-"https://ethz-ins.org/content/hg38.SalviatoDistalEnhancerTargets.GR.rds"
+
+#Promotors/TSS
+download.file("https://ethz-ins.org/content/hgEns104.promoters.rds", "promoters.rds")
+
+```
+
+#Load and Process data
+```{r}
+#peaks
+peak_FOXO1<- rtracklayer::import("FOXO1.bed.gz", format ="narrowPeak")
+head(peak_FOXO1)
+
+#interaction
+salviato<- readRDS(url(file))
+head(salviato)
+
+#Promoters
+proms <- readRDS("promoters.rds")
+head(proms)
+seqlevelsStyle(proms) <- "UCSC"
+```
+
+
+#Label Peaks (Predicted targets)
+```{r}
+#overlaps between peaks and Salviato interactions
+o<-findOverlaps(peak_FOXO1,salviato)
+head(o)
+
+#add target genes to the peaks
+mcols(peak_FOXO1)[from(o), "target"]<-salviato[to(o)]$target
+mcols(peak_FOXO1)$target <- CharacterList(mcols(peak_FOXO1)$target)
+peak_FOXO1
+
+#predict target gene
+peaks_with_targets <- peak_FOXO1[lengths(peak_FOXO1$target) > 0]
+
+# Only one target gene per peak
+peaks_with_targets$target_gene <- sapply(peaks_with_targets$target, `[`, 1)
+
+```
+
+#TSS Analysis 
+```{r}
+#Nearest TSS
+nearest_tss <- distanceToNearest(peaks_with_targets, proms) #get closest TSS for each peak
+peaks_with_targets$nearest_gene <- proms$gene_name[subjectHits(nearest_tss)] #get the gene closest to nearest_tss
+peaks_with_targets$distance_to_nearest <- mcols(nearest_tss)$distance #get the distance to nearest TSS 
+
+# TSS of predicted target genes
+target_gene_index <- match(peaks_with_targets$target_gene, proms$gene_name) #get TSS of predicted target genes 
+peaks_with_targets$target_tss <- start(proms)[target_gene_index]
+```
+
+#Peak split (upstream/downstream)
+```{r}
+# Midpoint
+peak_mid <- start(peaks_with_targets) + width(peaks_with_targets)/2
+
+# Distance to target TSS
+peaks_with_targets$distance_to_target <- abs(peak_mid - peaks_with_targets$target_tss)
+
+#upstream/downstream
+peaks_with_targets$position <- ifelse(
+  peak_mid < peaks_with_targets$target_tss,
+  "upstream", "downstream"
+)
+
+```
+
+
+# Proportion 
+```{r}
+
+# Predicted target vs. nearest gene
+peaks_with_targets$predicted_is_nearest <- peaks_with_targets$target_gene == peaks_with_targets$nearest_gene
+
+#Proportion
+prop_results <- prop.table(table(peaks_with_targets$position, peaks_with_targets$predicted_is_nearest), 1)
+
+upstream_prop <- prop_results["upstream", "TRUE"]
+downstream_prop <- prop_results["downstream", "TRUE"]
+
+cat("Proportion where predicted target is nearest gene:\n",
+    "Upstream peaks (%):", round(upstream_prop, 3) *100, "\n",
+    "Downstream peaks (%):", round(downstream_prop, 3) *100)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+data <- as.data.frame(peaks_with_targets)
+
+# Plot distance distribution
+library(ggplot2)
+ggplot(data, aes(x = distance_to_target, fill = position)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  scale_x_log10() +
+  labs(
+    title = "Distance from Peak to Target Gene TSS",
+    x = "Distance (bp, log)",
+    y = "Number of Peaks",
+    fill = "Position"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+```{r cars}
+summary(cars)
+```
